@@ -3,6 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import AdminLayout from "@/components/AdminLayout";
 import {
   fetchUserDetails,
+  addPanCardToUser,
+  addDocumentToUser,
   type UserDetails,
   type Document,
 } from "@/services/adminService";
@@ -20,6 +22,24 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { toast } from "sonner";
 
 export default function UserDetailsPage() {
   const { userId } = useParams<{ userId: string }>();
@@ -28,26 +48,157 @@ export default function UserDetailsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  // Add PAN Card modal state
+  const [showAddPanCardModal, setShowAddPanCardModal] = useState(false);
+  const [panCardName, setPanCardName] = useState("");
+  const [panCardNumber, setPanCardNumber] = useState("");
+  const [isAddingPanCard, setIsAddingPanCard] = useState(false);
+
+  // Add Document modal state
+  const [showAddDocumentModal, setShowAddDocumentModal] = useState(false);
+  const [documentName, setDocumentName] = useState("");
+  const [selectedPanCard, setSelectedPanCard] = useState("");
+  const [documentUrl, setDocumentUrl] = useState("");
+  const [aboutDocument, setAboutDocument] = useState("");
+  const [isAddingDocument, setIsAddingDocument] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
+  const loadUserDetails = async () => {
     if (!userId) return;
-
-    const loadUserDetails = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        const response = await fetchUserDetails(userId);
-        if (response.success) {
-          setUserDetails(response.data);
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load user");
-      } finally {
-        setIsLoading(false);
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await fetchUserDetails(userId);
+      if (response.success) {
+        setUserDetails(response.data);
       }
-    };
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load user");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  useEffect(() => {
     loadUserDetails();
   }, [userId]);
+
+  const handleRefresh = () => {
+    loadUserDetails();
+  };
+
+  const handleAddPanCard = async () => {
+    if (!userId || !panCardName.trim() || !panCardNumber.trim()) return;
+
+    try {
+      setIsAddingPanCard(true);
+      await addPanCardToUser(userId, {
+        panCardName: panCardName.trim(),
+        panCardNumber: panCardNumber.trim().toUpperCase(),
+      });
+      toast.success("PAN card added successfully");
+      setShowAddPanCardModal(false);
+      setPanCardName("");
+      setPanCardNumber("");
+      loadUserDetails();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to add PAN card"
+      );
+    } finally {
+      setIsAddingPanCard(false);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploading(true);
+      setUploadProgress(0);
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const token = localStorage.getItem("token");
+
+      const xhr = new XMLHttpRequest();
+      xhr.upload.addEventListener("progress", (event) => {
+        if (event.lengthComputable) {
+          const percent = Math.round((event.loaded / event.total) * 100);
+          setUploadProgress(percent);
+        }
+      });
+
+      xhr.onload = () => {
+        if (xhr.status === 200 || xhr.status === 201) {
+          const response = JSON.parse(xhr.responseText);
+          const url =
+            response.url ||
+            response.fileUrl ||
+            response.data?.url ||
+            response.data?.fileUrl ||
+            response.file?.url ||
+            response.location ||
+            response.path;
+          if (url) {
+            setDocumentUrl(url);
+            toast.success("File uploaded successfully");
+          } else {
+            toast.error("Upload succeeded but no URL returned");
+          }
+        } else {
+          toast.error("Upload failed");
+        }
+        setIsUploading(false);
+        setUploadProgress(0);
+      };
+
+      xhr.onerror = () => {
+        toast.error("Upload failed");
+        setIsUploading(false);
+        setUploadProgress(0);
+      };
+
+      xhr.open("POST", "http://localhost:5454/api/upload");
+      xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+      xhr.send(formData);
+    } catch {
+      toast.error("Upload failed");
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  const handleAddDocument = async () => {
+    if (!userId || !documentName.trim() || !selectedPanCard || !documentUrl)
+      return;
+
+    try {
+      setIsAddingDocument(true);
+      await addDocumentToUser(userId, {
+        documentName: documentName.trim(),
+        panCard: selectedPanCard,
+        documentUrl,
+        aboutDocument: aboutDocument.trim() || undefined,
+      });
+      toast.success("Document added successfully");
+      setShowAddDocumentModal(false);
+      setDocumentName("");
+      setSelectedPanCard("");
+      setDocumentUrl("");
+      setAboutDocument("");
+      loadUserDetails();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to add document"
+      );
+    } finally {
+      setIsAddingDocument(false);
+    }
+  };
 
   const getInitials = (name: string) => {
     return name
@@ -130,31 +281,89 @@ export default function UserDetailsPage() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        {/* Header with back button */}
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate("/admin/users")}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              viewBox="0 0 20 20"
-              fill="currentColor"
+        {/* Header with back button and action buttons */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate("/admin/users")}
             >
-              <path
-                fillRule="evenodd"
-                d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </Button>
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight">User Details</h2>
-            <p className="text-muted-foreground">
-              View and manage user information
-            </p>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </Button>
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight">
+                User Details
+              </h2>
+              <p className="text-muted-foreground">
+                View and manage user information
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowAddPanCardModal(true)}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4 mr-2"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" />
+                <path
+                  fillRule="evenodd"
+                  d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              Add PAN Card
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setShowAddDocumentModal(true)}
+              disabled={panCards.length === 0}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4 mr-2"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              Add Document
+            </Button>
+            <Button variant="outline" size="icon" onClick={handleRefresh}>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </Button>
           </div>
         </div>
 
@@ -513,6 +722,177 @@ export default function UserDetailsPage() {
           })}
         </Tabs>
       </div>
+
+      {/* Add PAN Card Modal */}
+      <Dialog open={showAddPanCardModal} onOpenChange={setShowAddPanCardModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add PAN Card</DialogTitle>
+            <DialogDescription>
+              Add a new PAN card for {user.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="panCardName">
+                Name on PAN Card <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="panCardName"
+                placeholder="Enter name as on PAN card"
+                value={panCardName}
+                onChange={(e) => setPanCardName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="panCardNumber">
+                PAN Card Number <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="panCardNumber"
+                placeholder="e.g., ABCDE1234F"
+                value={panCardNumber}
+                onChange={(e) => setPanCardNumber(e.target.value.toUpperCase())}
+                maxLength={10}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowAddPanCardModal(false);
+                setPanCardName("");
+                setPanCardNumber("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddPanCard}
+              disabled={
+                isAddingPanCard ||
+                !panCardName.trim() ||
+                panCardNumber.length !== 10
+              }
+            >
+              {isAddingPanCard ? "Adding..." : "Add PAN Card"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Document Modal */}
+      <Dialog
+        open={showAddDocumentModal}
+        onOpenChange={setShowAddDocumentModal}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Document</DialogTitle>
+            <DialogDescription>
+              Upload a document for {user.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="documentName">
+                Document Name <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="documentName"
+                placeholder="e.g., Aadhar Card, Voter ID"
+                value={documentName}
+                onChange={(e) => setDocumentName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="panCardSelect">
+                PAN Card <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={selectedPanCard}
+                onValueChange={setSelectedPanCard}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a PAN card" />
+                </SelectTrigger>
+                <SelectContent>
+                  {panCards.map((pc) => (
+                    <SelectItem key={pc._id} value={pc._id}>
+                      {pc.panCardName} - {pc.panCardNumber}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="documentFile">
+                Upload Document <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="documentFile"
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png"
+                onChange={handleFileUpload}
+                disabled={isUploading}
+              />
+              {isUploading && (
+                <div className="space-y-2">
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className="bg-primary h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${uploadProgress}%` }}
+                    />
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Uploading... {uploadProgress}%
+                  </p>
+                </div>
+              )}
+              {documentUrl && !isUploading && (
+                <p className="text-sm text-green-600">
+                  ✓ File uploaded successfully
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="aboutDocument">Description (Optional)</Label>
+              <Input
+                id="aboutDocument"
+                placeholder="Brief description about the document"
+                value={aboutDocument}
+                onChange={(e) => setAboutDocument(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowAddDocumentModal(false);
+                setDocumentName("");
+                setSelectedPanCard("");
+                setDocumentUrl("");
+                setAboutDocument("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddDocument}
+              disabled={
+                isAddingDocument ||
+                !documentName.trim() ||
+                !selectedPanCard ||
+                !documentUrl
+              }
+            >
+              {isAddingDocument ? "Adding..." : "Add Document"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 }

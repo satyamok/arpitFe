@@ -127,3 +127,54 @@ export async function fetchUserDetails(
 
   return response.json();
 }
+
+export async function addPanCardToUser(
+  userId: string,
+  panCardData: { panCardName: string; panCardNumber: string }
+): Promise<{ success: boolean; message: string }> {
+  const token = localStorage.getItem("token");
+
+  const response = await fetch(`${API_BASE}/auth/user/${userId}/pancard`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(panCardData),
+  });
+
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.message || "Failed to add PAN card");
+  }
+
+  return response.json();
+}
+
+export async function addDocumentToUser(
+  userId: string,
+  documentData: {
+    documentName: string;
+    panCard: string;
+    documentUrl: string;
+    aboutDocument?: string;
+  }
+): Promise<{ success: boolean; message: string }> {
+  const token = localStorage.getItem("token");
+
+  const response = await fetch(`${API_BASE}/auth/user/${userId}/document`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(documentData),
+  });
+
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.message || "Failed to add document");
+  }
+
+  return response.json();
+}
