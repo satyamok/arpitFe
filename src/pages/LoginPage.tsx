@@ -26,7 +26,12 @@ export default function LoginPage() {
     dispatch(clearError());
     const result = await dispatch(login({ email, password }));
     if (login.fulfilled.match(result)) {
-      navigate("/check");
+      const userRole = result.payload?.user?.role;
+      if (userRole === "admin" || userRole === "master") {
+        navigate("/admin");
+      } else {
+        navigate("/check");
+      }
     }
   };
 

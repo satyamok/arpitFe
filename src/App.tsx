@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import AdminRoute from "@/components/AdminRoute";
 import LoginPage from "@/pages/LoginPage";
 import SignupPage from "@/pages/SignupPage";
 import CheckDataPage from "@/pages/CheckDataPage";
@@ -11,6 +12,8 @@ import AboutPage from "@/pages/AboutPage";
 import NotificationsPage from "@/pages/NotificationsPage";
 import ProfilePage from "@/pages/ProfilePage";
 import DocumentsPage from "@/pages/DocumentsPage";
+import AdminDashboardPage from "@/pages/admin/DashboardPage";
+import AdminUsersPage from "@/pages/admin/UsersPage";
 
 function App() {
   return (
@@ -90,6 +93,13 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+        {/* Admin Routes */}
+        <Route element={<AdminRoute />}>
+          <Route path="/admin" element={<AdminDashboardPage />} />
+          <Route path="/admin/users" element={<AdminUsersPage />} />
+        </Route>
+
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

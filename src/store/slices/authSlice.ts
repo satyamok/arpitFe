@@ -7,6 +7,7 @@ interface User {
   name: string;
   email: string;
   mobile?: string;
+  role?: "user" | "admin" | "master";
 }
 
 interface AuthState {
@@ -17,8 +18,18 @@ interface AuthState {
   isAuthenticated: boolean;
 }
 
+// Helper to get stored user
+const getStoredUser = (): User | null => {
+  try {
+    const user = localStorage.getItem("user");
+    return user ? JSON.parse(user) : null;
+  } catch {
+    return null;
+  }
+};
+
 const initialState: AuthState = {
-  user: null,
+  user: getStoredUser(),
   token: localStorage.getItem("token"),
   isLoading: false,
   error: null,
@@ -44,6 +55,9 @@ export const login = createAsyncThunk(
         return rejectWithValue(data.message || "Login failed");
       }
       localStorage.setItem("token", data.token);
+      if (data.user) {
+        localStorage.setItem("user", JSON.stringify(data.user));
+      }
       return data;
     } catch {
       return rejectWithValue("Network error");
@@ -70,6 +84,9 @@ export const signup = createAsyncThunk(
         return rejectWithValue(data.message || "Signup failed");
       }
       localStorage.setItem("token", data.token);
+      if (data.user) {
+        localStorage.setItem("user", JSON.stringify(data.user));
+      }
       return data;
     } catch {
       return rejectWithValue("Network error");
@@ -107,6 +124,7 @@ const authSlice = createSlice({
       state.token = null;
       state.isAuthenticated = false;
       localStorage.removeItem("token");
+      localStorage.removeItem("user");
     },
     clearError: (state) => {
       state.error = null;
