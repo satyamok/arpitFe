@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import AdminLayout from "@/components/AdminLayout";
+import FileUpload from "@/components/FileUpload";
 import {
   fetchUserDetails,
   addPanCardToUser,
@@ -61,8 +62,10 @@ export default function UserDetailsPage() {
   const [documentUrl, setDocumentUrl] = useState("");
   const [aboutDocument, setAboutDocument] = useState("");
   const [isAddingDocument, setIsAddingDocument] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+
+  const handleUploadComplete = (url: string) => {
+    setDocumentUrl(url);
+  };
 
   const loadUserDetails = async () => {
     if (!userId) return;
@@ -108,67 +111,6 @@ export default function UserDetailsPage() {
       );
     } finally {
       setIsAddingPanCard(false);
-    }
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      setIsUploading(true);
-      setUploadProgress(0);
-
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const token = localStorage.getItem("token");
-
-      const xhr = new XMLHttpRequest();
-      xhr.upload.addEventListener("progress", (event) => {
-        if (event.lengthComputable) {
-          const percent = Math.round((event.loaded / event.total) * 100);
-          setUploadProgress(percent);
-        }
-      });
-
-      xhr.onload = () => {
-        if (xhr.status === 200 || xhr.status === 201) {
-          const response = JSON.parse(xhr.responseText);
-          const url =
-            response.url ||
-            response.fileUrl ||
-            response.data?.url ||
-            response.data?.fileUrl ||
-            response.file?.url ||
-            response.location ||
-            response.path;
-          if (url) {
-            setDocumentUrl(url);
-            toast.success("File uploaded successfully");
-          } else {
-            toast.error("Upload succeeded but no URL returned");
-          }
-        } else {
-          toast.error("Upload failed");
-        }
-        setIsUploading(false);
-        setUploadProgress(0);
-      };
-
-      xhr.onerror = () => {
-        toast.error("Upload failed");
-        setIsUploading(false);
-        setUploadProgress(0);
-      };
-
-      xhr.open("POST", "http://localhost:5454/api/upload");
-      xhr.setRequestHeader("Authorization", `Bearer ${token}`);
-      xhr.send(formData);
-    } catch {
-      toast.error("Upload failed");
-      setIsUploading(false);
-      setUploadProgress(0);
     }
   };
 
@@ -827,34 +769,10 @@ export default function UserDetailsPage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="documentFile">
+              <Label>
                 Upload Document <span className="text-red-500">*</span>
               </Label>
-              <Input
-                id="documentFile"
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png"
-                onChange={handleFileUpload}
-                disabled={isUploading}
-              />
-              {isUploading && (
-                <div className="space-y-2">
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className="bg-primary h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${uploadProgress}%` }}
-                    />
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Uploading... {uploadProgress}%
-                  </p>
-                </div>
-              )}
-              {documentUrl && !isUploading && (
-                <p className="text-sm text-green-600">
-                  ✓ File uploaded successfully
-                </p>
-              )}
+              <FileUpload onUploadComplete={handleUploadComplete} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="aboutDocument">Description (Optional)</Label>
