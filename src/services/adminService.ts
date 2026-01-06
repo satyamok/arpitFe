@@ -10,6 +10,42 @@ export interface AdminUser {
   panCardCount: number;
 }
 
+export interface PanCard {
+  _id: string;
+  panCardName: string;
+  panCardNumber: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Document {
+  _id: string;
+  documentName: string;
+  panCard: {
+    _id: string;
+    panCardName: string;
+    panCardNumber: string;
+  };
+  documentUrl: string;
+  aboutDocument: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UserDetails {
+  user: {
+    _id: string;
+    name: string;
+    email: string;
+    mobile: string;
+    role: string;
+    createdAt: string;
+    updatedAt: string;
+  };
+  panCards: PanCard[];
+  documents: Document[];
+}
+
 export interface FetchUsersParams {
   cursor?: string | null;
   limit?: number;
@@ -69,6 +105,24 @@ export async function searchUsers(search: string): Promise<FetchUsersResponse> {
 
   if (!response.ok) {
     throw new Error("Failed to search users");
+  }
+
+  return response.json();
+}
+
+export async function fetchUserDetails(
+  userId: string
+): Promise<{ success: boolean; data: UserDetails }> {
+  const token = localStorage.getItem("token");
+
+  const response = await fetch(`${API_BASE}/auth/user/${userId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch user details");
   }
 
   return response.json();

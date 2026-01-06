@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import AdminLayout from "@/components/AdminLayout";
 import { useInfiniteScroll, generateCacheKey } from "@/hooks/useInfiniteScroll";
 import { fetchUsers, type AdminUser } from "@/services/adminService";
@@ -26,6 +27,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 const LIMIT = 10;
 
 export default function AdminUsersPage() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("");
@@ -236,7 +238,11 @@ export default function AdminUsersPage() {
                     </TableRow>
                   ) : (
                     users.map((user) => (
-                      <TableRow key={user._id}>
+                      <TableRow
+                        key={user._id}
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => navigate(`/admin/users/${user._id}`)}
+                      >
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <Avatar className="h-9 w-9">

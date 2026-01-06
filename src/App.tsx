@@ -14,6 +14,7 @@ import ProfilePage from "@/pages/ProfilePage";
 import DocumentsPage from "@/pages/DocumentsPage";
 import AdminDashboardPage from "@/pages/admin/DashboardPage";
 import AdminUsersPage from "@/pages/admin/UsersPage";
+import UserDetailsPage from "@/pages/admin/UserDetailsPage";
 
 function App() {
   return (
@@ -98,6 +99,7 @@ function App() {
         <Route element={<AdminRoute />}>
           <Route path="/admin" element={<AdminDashboardPage />} />
           <Route path="/admin/users" element={<AdminUsersPage />} />
+          <Route path="/admin/users/:userId" element={<UserDetailsPage />} />
         </Route>
 
         <Route path="/" element={<Navigate to="/login" replace />} />
